@@ -123,28 +123,25 @@ def Numeros_sp(path):
     #retirando dados:
     # Vendas, lançamentos, oferta final, VSO (Mensal), VSO(12 meses), VGV
 
-    vm = read_pdf(path, pages="1", area=(132.182, 11.694, 317.874, 156.988))
-    vm = vm[0]
-    vm.dropna(inplace=True)
-    vm.rename(columns={'Números do mês:': 'Mes'}, inplace=True)
-    vm = vm['Mes'].str.split(' = ', expand=True)
-    vm.rename(columns={0: 'info', 1: f'{mes}/{Ano}'}, inplace=True)
-    vm.set_index('info', inplace=True)
-    vm.rename(index={'VSO (mensal)': 'VSO Mensal (%)'}, inplace=True)
-    vm.rename(index={'VSO (12 meses)': 'VSO Anual (%)'}, inplace=True)
+    vm = read_pdf(path, pages="1", area=(132.182, 11.694, 317.874, 156.988)) #seleciona o local a serem retiradas as informações
+    vm = vm[0] #retira da lista gerada o dataframe que será utilizado
+    vm.dropna(inplace=True) #retira do dataframe os valores em branco (no caso do texto provavelmente uma quebra de linha foi usada e é reconhecida como NaN = Not a number)
+    vm.rename(columns={'Números do mês:': 'Mes'}, inplace=True) #renomeação da coluna para facilitar manipulação
+    vm = vm['Mes'].str.split(' = ', expand=True) #o retorno é reconhecido como string, de um lado do que a informação trata e do outro o número de fato. É feita a separação tomando como base o sinal de igualdade presente em todas as strings.
+    vm.rename(columns={0: 'info', 1: f'{mes}/{Ano}'}, inplace=True) #renomeação das colunas para facilitar a manipulação.
+    vm.set_index('info', inplace=True) #transformo a primeira coluna no índice do dataframe.
+    vm.rename(index={'VSO (mensal)': 'VSO Mensal (%)'}, inplace=True)  #índice renomeado
+    vm.rename(index={'VSO (12 meses)': 'VSO Anual (%)'}, inplace=True) #índice renomeado
 
     #transformando o dado
-    vm.replace(r'\.', '', regex=True, inplace=True) #comentar
-    vm.replace(r'\,', '.', regex=True, inplace=True) #comentar
-    vm.replace(r'[\sa-z-A-Zõã$%]', '', regex=True, inplace=True) #comentar
-
-    # vm[f'{mes}/{Ano}'] = vm[f'{mes}/{Ano}'].str.replace('.','')
-    # vm[f'{mes}/{Ano}'] = vm[f'{mes}/{Ano}'].str.replace(',','.')
-    # vm[f'{mes}/{Ano}'] = vm[f'{mes}/{Ano}'].str.replace(r'[\sa-z-A-Zõã$%]','')
-    vm.iloc[5] = round(float(vm.iloc[5]) * 1000000)
-    vm = vm.T #comentar
+    vm.replace(r'\.', '', regex=True, inplace=True) #tirando os "." das strings (esses pontos são separadores de milhar)
+    vm.replace(r'\,', '.', regex=True, inplace=True) #trocando a "," (separador de casa decimal no nosso sistema) para ponto.
+    vm.replace(r'[\sa-z-A-Zõã$%]', '', regex=True, inplace=True) #retirando das strings todo texto e símbolo além dos números e dos separadores decimais.
+    vm.iloc[5] = round(float(vm.iloc[5]) * 1000000) # transformando de "x mil milhões" para bilhões
+    vm = vm.T #o dataframe é uma matriz, o método .T é usado para transpor a matriz. Nesse caso, o objetivo é transformar a data como índice da tabela.
     vm.index.name = "Mês"
 
+    #Teste para verificar a possibilidade de existência da informação coletada no banco. Caso exista, os dados não serão salvos.
     exists = session.query(Numeros_spdb).filter(Numeros_spdb.date == f"{mes}/{Ano}").all()
     if not exists:
         new_row = Numeros_spdb(date=f'{mes}/{Ano}', Vendas=float(vm.iloc[0][0]), Lancamentos=float(vm.iloc[0][1]), Oferta_final=float(
